@@ -18,9 +18,8 @@
 
         .screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; background-size: cover; background-position: center; }
         
-        /* --- 1ere SÉCURITÉ : OVERLAY D'IMMERSION --- */
-        #start-overlay { position: absolute; top:0; left:0; width:100%; height:100%; background: #000 url('img_intro_base.png') no-repeat center center; background-size: cover; z-index: 6000; display: flex; justify-content: center; align-items: center; flex-direction: column;}
-        #start-overlay::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: -1; }
+        /* --- 1ere SÉCURITÉ : OVERLAY D'IMMERSION (TOTALEMENT NOIR) --- */
+        #start-overlay { position: absolute; top:0; left:0; width:100%; height:100%; background: #000; z-index: 6000; display: flex; justify-content: center; align-items: center; flex-direction: column;}
         #start-overlay h1 { font-size: 3rem; color: #fff; text-shadow: 0 0 15px var(--ui-color); margin-bottom: 30px; text-align: center; text-transform: uppercase;}
         .unlock-btn { padding: 15px 40px; font-size: 20px; cursor: pointer; background: var(--ui-color); color: white; border: none; border-radius: 50px; text-transform: uppercase; font-weight: bold; box-shadow: 0 5px 15px rgba(255, 42, 95, 0.5); transition: 0.2s; animation: pulse 2s infinite;}
         .unlock-btn:active { transform: scale(0.95); }
@@ -86,6 +85,9 @@
         
         <audio id="sfx-click" src="sfx_click.mp3"></audio>
         <audio id="sfx-cloth" src="sfx_cloth.mp3"></audio>
+        <audio id="sfx-sonnerie" src="sfx_sonnerie.mp3"></audio>
+        <audio id="sfx-ronflement" src="sfx_ronflement.mp3" loop></audio>
+
         <audio id="bgm-menu" src="menu_bgm.mp3" loop></audio>
         <audio id="bgm-game" src="game_bgm.mp3" loop></audio>
         <audio id="bgm-dressing" src="dressing_bgm.mp3" loop></audio>
@@ -155,9 +157,12 @@
     </div>
 
     <script>
-        // --- GESTION AUDIO (Volumes ajustés PRO V2) ---
+        // --- GESTION AUDIO ---
         const sfxClick = document.getElementById('sfx-click');
         const sfxCloth = document.getElementById('sfx-cloth');
+        const sfxSonnerie = document.getElementById('sfx-sonnerie');
+        const sfxRonflement = document.getElementById('sfx-ronflement');
+
         const bgmMenu = document.getElementById('bgm-menu');
         const bgmGame = document.getElementById('bgm-game');
         const bgmDressing = document.getElementById('bgm-dressing');
@@ -173,26 +178,21 @@
             else if (document.documentElement.msRequestFullscreen) { document.documentElement.msRequestFullscreen(); }
         }
 
-        // --- INITIALISATION DU JEU (Flow : Overlay -> Logo -> Menu) ---
+        // --- INITIALISATION DU JEU ---
         function initGame() {
-            // Le joueur a cliqué : déverrouillage audio + demande plein écran
             playClick();
-            enterFullscreen(); // IMMERSION FORCE-ON
+            enterFullscreen(); 
             
-            // On cache la transition
             document.getElementById('start-overlay').style.display = 'none';
             
-            // On affiche et on lance l'écran de Branding (Logo Vidéo)
             const logoScreen = document.getElementById('logo-video-screen');
             const logoVideo = document.getElementById('logo-video');
             logoScreen.style.display = 'flex';
             logoVideo.load();
             logoVideo.play().catch(()=>{
-                // Sécurité si la vidéo de logo ne charge pas : on coupe direct au menu
                 endLogoVideo();
             });
 
-            // Quand la vidéo de logo est finie, on coupe au menu principal
             logoVideo.onended = () => {
                 endLogoVideo();
             };
@@ -202,12 +202,11 @@
             document.getElementById('logo-video-screen').style.display = 'none';
             document.getElementById('menu-screen').style.display = 'flex';
             
-            // On lance la musique du menu (Volume PRO V2 : 15%)
             bgmMenu.volume = 0.15;
             bgmMenu.play().catch(()=>{});
             
-            // Pré-charge les autres sons pour éviter les saccades
             sfxCloth.load(); bgmGame.load(); bgmDressing.load(); bgmDinner.load();
+            sfxSonnerie.load(); sfxRonflement.load();
         }
 
         function showRules() { playClick(); document.getElementById('rules-modal').style.display = 'flex'; }
@@ -215,7 +214,7 @@
         function closeModal(id) { playClick(); document.getElementById(id).style.display = 'none'; }
 
 
-        // --- LE MOTEUR NARRATIF (STORY FLOW COMPLET Actes 1 & 2) ---
+        // --- LE MOTEUR NARRATIF (ACTES 1, 2 ET 3 INTÉGRÉS) ---
         const story = {
             // ACTE 1
             'intro': {
@@ -263,12 +262,13 @@
                     { text: "Je n'ai pas les moyens", next: 'choix_2_3b_sobre' }
                 ]
             },
-            // NOUVEAU CÂBLAGE : On envoie vers les adieux !
             'choix_2_3a_sobre': { video: 'vid_2_3a_sobre.mp4', nextAuto: 'adieux_sobre' },
             'choix_2_3b_sobre': { video: 'vid_2_3b_sobre.mp4', nextAuto: 'adieux_sobre' },
 
             'adieux_sobre': { video: 'vid_2_4_sobre.mp4', nextAuto: 'voiture_sobre' },
-            'voiture_sobre': { video: 'vid_2_5_sobre.mp4', nextAuto: 'FIN_ACTE_2' },
+            
+            // TRANSITION VERS ACTE 3 (On envoie directement sur l'appel au lieu du logo)
+            'voiture_sobre': { video: 'vid_2_5_sobre.mp4', nextAuto: 'intro_acte3' },
 
             // ACTE 2 - LE DÎNER (CHEMIN SEXY)
             'diner_intro_sexy': {
@@ -298,16 +298,43 @@
                     { text: "Il va falloir me mériter", next: 'choix_2_3b_sexy' }
                 ]
             },
-            // NOUVEAU CÂBLAGE : On envoie vers les adieux !
             'choix_2_3a_sexy': { video: 'vid_2_3a_sexy.mp4', nextAuto: 'adieux_sexy' },
             'choix_2_3b_sexy': { video: 'vid_2_3b_sexy.mp4', nextAuto: 'adieux_sexy' },
 
             'adieux_sexy': { video: 'vid_2_4_sexy.mp4', nextAuto: 'voiture_sexy' },
-            'voiture_sexy': { video: 'vid_2_5_sexy.mp4', nextAuto: 'FIN_ACTE_2' },
+            
+            // TRANSITION VERS ACTE 3
+            'voiture_sexy': { video: 'vid_2_5_sexy.mp4', nextAuto: 'intro_acte3' },
 
-            // BLOCAGE EN ATTENDANT L'ACTE 3
-            // Pour tester, je reboucle sur ton animation de logo (ou laisse noir) à la fin.
-            'FIN_ACTE_2': { video: 'vid_intro_logo.mp4', choices: [] } 
+            // ============================================
+            // ACTE 3 - LE COUP DE TÉLÉPHONE DANS LA NUIT
+            // ============================================
+            
+            'intro_acte3': { video: 'vid_3_intro.mp4', nextAuto: 'split_screen_appel' },
+            
+            'split_screen_appel': {
+                video: 'vid_3_call_split.mp4',
+                choices: [
+                    { text: "Dormir (Refus)", next: 'choix_3_a_refus' },
+                    { text: "Flirter (Invitation)", next: 'choix_3_b_flirt' }
+                ]
+            },
+
+            // --- BRANCHE A (Le Refus) ---
+            'choix_3_a_refus': { video: 'vid_3_choix_a.mp4', nextAuto: 'reaction_3_a' },
+            'reaction_3_a': { video: 'vid_3_reaction_a.mp4', nextAuto: 'transition_1_a' },
+            'transition_1_a': { video: 'vid_3_a_coucher.mp4', nextAuto: 'transition_2_a' },
+            'transition_2_a': { video: 'vid_3_a_colere_coco.mp4', nextAuto: 'FIN_ACTE_3_A' }, // Fin de l'épisode pour la branche A
+
+            // --- BRANCHE B (Le Flirt) ---
+            'choix_3_b_flirt': { video: 'vid_3_choix_b.mp4', nextAuto: 'reaction_3_b' },
+            'reaction_3_b': { video: 'vid_3_reaction_b.mp4', nextAuto: 'transition_1_b' },
+            'transition_1_b': { video: 'vid_3_b_depart_fraise.mp4', nextAuto: 'transition_2_b' },
+            'transition_2_b': { video: 'vid_3_b_joie_coco.mp4', nextAuto: 'FIN_ACTE_3_B' }, // Fin de l'épisode pour la branche B
+
+            // BLOCAGE EN ATTENDANT L'ACTE 4 (Retour au logo pour le moment)
+            'FIN_ACTE_3_A': { video: 'vid_intro_logo.mp4', choices: [] }, 
+            'FIN_ACTE_3_B': { video: 'vid_intro_logo.mp4', choices: [] } 
         };
 
         let currentSceneId = '';
@@ -322,7 +349,6 @@
             bgmMenu.pause();
             document.getElementById('menu-screen').style.display = 'none';
             
-            // Mixage PRO V2 : Volume drastiquement abaissé (5%) pendant l'intro pour les dialogues de Banane !
             bgmGame.volume = 0.05; 
             bgmGame.play().catch(()=>{});
             
@@ -335,12 +361,30 @@
             
             if(sceneId === 'start_dressing') { openDressing(); return; }
 
-            // Trigger Musique du Dîner quand on arrive chez Noix de Coco
+            // Trigger Musique du Dîner
             if(sceneId === 'diner_intro_sobre' || sceneId === 'diner_intro_sexy') {
-                bgmGame.pause(); // Coupe la musique triste
-                bgmDinner.volume = 0.15; // Volume abaissé
+                bgmGame.pause(); 
+                bgmDinner.volume = 0.15; 
                 bgmDinner.play().catch(()=>{});
             }
+
+            // --- LOGIQUE SPÉCIALE ACTE 3 (BRUITAGES SFX) ---
+            // 1. On lance le ronflement et la sonnerie pour l'intro Acte 3
+            if(sceneId === 'intro_acte3') {
+                bgmDinner.pause(); // Coupe la musique du dîner
+                sfxRonflement.volume = 0.7; // Fort
+                sfxSonnerie.volume = 0.6;   // Modéré
+                sfxRonflement.play().catch(()=>{});
+                sfxSonnerie.play().catch(()=>{});
+            }
+            // 2. On coupe les bruitages dès qu'on passe au Split-Screen !
+            if(sceneId === 'split_screen_appel') {
+                sfxRonflement.pause();
+                sfxRonflement.currentTime = 0;
+                sfxSonnerie.pause();
+                sfxSonnerie.currentTime = 0;
+            }
+            // ----------------------------------------------
 
             videoScreen.style.display = 'flex';
             choicesOverlay.style.display = 'none'; 
@@ -371,7 +415,7 @@
             playScene(nextSceneId);
         }
 
-        // --- MÉCANIQUE DU DRESSING ROOM (PRO V1.3) ---
+        // --- MÉCANIQUE DU DRESSING ROOM ---
         const dressingScreen = document.getElementById('dressing-screen');
         const dressingPreview = document.getElementById('dressing-preview');
         const dressingTextOverlay = document.getElementById('dressing-text-overlay');
@@ -381,13 +425,12 @@
         function openDressing() {
             videoScreen.style.display = 'none';
             bgmGame.pause(); 
-            bgmDressing.volume = 0.15; // Volume abaissé
+            bgmDressing.volume = 0.15; 
             bgmDressing.play().catch(()=>{}); 
             
             dressingScreen.style.display = 'flex';
             dressingPreview.src = 'dressing_base.png';
             
-            // On cache le texte et le bouton valider au début
             dressingTextOverlay.style.display = 'none';
             btnValiderTenue.style.display = 'none';
             document.getElementById('card-sobre').classList.remove('active');
@@ -403,7 +446,7 @@
             document.getElementById('card-sexy').classList.remove('active');
             document.getElementById(`card-${type}`).classList.add('active');
             btnValiderTenue.style.display = 'block';
-            dressingTextOverlay.style.display = 'block'; // Affichage de l'overlay texte
+            dressingTextOverlay.style.display = 'block'; 
 
             if(type === 'sobre') {
                 dressingPreview.src = 'dressing_sobre.png';
